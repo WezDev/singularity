@@ -5,12 +5,21 @@ import { getDb, initDb, insertEvent } from "../../db.js";
 import { parseWorkflow } from "../../installer/workflow-spec.js";
 import { getWorkflowsDir } from "../../paths.js";
 
+function parseFlag(args: string[], flag: string): { value: string | undefined; remaining: string[] } {
+    const idx = args.indexOf(flag);
+    if (idx === -1 || idx + 1 >= args.length) return { value: undefined, remaining: args };
+    const value = args[idx + 1];
+    const remaining = [...args.slice(0, idx), ...args.slice(idx + 2)];
+    return { value, remaining };
+}
+
 export function run(args: string[]): void {
-    const workflowId = args[0];
-    const task = args.slice(1).join(" ");
+    const { value: scheduledAt, remaining } = parseFlag(args, "--at");
+    const workflowId = remaining[0];
+    const task = remaining.slice(1).join(" ");
 
     if (!workflowId || !task) {
-        console.error("Usage: singularity workflow run <workflow-id> <task>");
+        console.error("Usage: singularity workflow run <workflow-id> [--at <ISO8601>] <task>");
         process.exit(1);
     }
 
@@ -36,8 +45,8 @@ export function run(args: string[]): void {
     const runId = randomUUID();
 
     db.prepare(
-        "INSERT INTO runs (id, workflow, task, status) VALUES (?, ?, ?, 'running')"
-    ).run(runId, spec.id, task);
+        "INSERT INTO runs (id, workflow, task, status, scheduled_at) VALUES (?, ?, ?, 'running', ?)"
+    ).run(runId, spec.id, task, scheduledAt ?? null);
 
     for (let i = 0; i < spec.steps.length; i++) {
         const step = spec.steps[i];
@@ -51,12 +60,15 @@ export function run(args: string[]): void {
         ).run(stepId, runId, step.id, agentId, status, step.input, maxRetries);
     }
 
-    insertEvent(runId, null, "run.created", { workflow: spec.id, task });
+    insertEvent(runId, null, "run.created", { workflow: spec.id, task, scheduledAt: scheduledAt ?? null });
 
     const shortId = runId.slice(0, 8);
     console.log(`Run: ${shortId}`);
     console.log(`Workflow: ${spec.id}`);
     console.log(`Task: ${task}`);
+    if (scheduledAt) {
+        console.log(`Scheduled: ${scheduledAt}`);
+    }
     console.log(`Status: running`);
     console.log(`Steps: ${spec.steps.length} (first step ready for pickup)`);
 }

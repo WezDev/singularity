@@ -8,6 +8,7 @@ export interface SDKConfig {
     configPath?: string;
     cronStorePath?: string;
     skillsDir?: string;
+    agentsBaseDir?: string;
 }
 
 export interface ResolvedSDKConfig {
@@ -18,6 +19,7 @@ export interface ResolvedSDKConfig {
     configPath: string;
     cronStorePath: string;
     skillsDir: string;
+    agentsBaseDir: string;
 }
 
 // Agents
@@ -143,6 +145,7 @@ export interface Run {
     status: "running" | "done" | "failed" | "stopped";
     createdAt: string;
     completedAt: string | null;
+    scheduledAt: string | null;
 }
 
 export interface RunDetail extends Run {
@@ -263,6 +266,8 @@ export interface Skill {
     hasSkillMd: boolean;
     description?: string;
     content?: string;
+    scope: "global" | "agent";
+    agentId?: string;
 }
 
 export interface CreateSkillParams {
@@ -270,12 +275,14 @@ export interface CreateSkillParams {
     description: string;
     content: string;
     files?: Record<string, string>;
+    target?: "global" | string[];
 }
 
 export interface UpdateSkillParams {
     description?: string;
     content?: string;
     files?: Record<string, string>;
+    target?: "global" | string[];
 }
 
 // Usage

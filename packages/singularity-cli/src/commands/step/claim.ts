@@ -51,6 +51,7 @@ export function claim(args: string[]): void {
         AND s.status = 'ready'
         AND r.workflow = ?
         AND r.status = 'running'
+        AND (r.scheduled_at IS NULL OR r.scheduled_at <= datetime('now'))
         ORDER BY s.created_at ASC
         LIMIT 1
     `, agentId, workflowId);

@@ -60,6 +60,7 @@ export function resolveConfig(config?: SDKConfig): ResolvedSDKConfig {
         configPath: config?.configPath ?? resolve(openclawDir, "openclaw.json"),
         cronStorePath: config?.cronStorePath ?? resolve(singularityDir, "cron/jobs.json"),
         skillsDir: config?.skillsDir ?? resolve(workspace, "skills"),
+        agentsBaseDir: config?.agentsBaseDir ?? resolve(openclawDir, "agents"),
     };
 }
 

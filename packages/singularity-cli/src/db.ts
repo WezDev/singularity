@@ -12,7 +12,8 @@ CREATE TABLE IF NOT EXISTS runs (
     task TEXT NOT NULL,
     status TEXT DEFAULT 'running',
     created_at TEXT DEFAULT (datetime('now')),
-    completed_at TEXT
+    completed_at TEXT,
+    scheduled_at TEXT
 );
 
 CREATE TABLE IF NOT EXISTS steps (
@@ -60,7 +61,7 @@ let _db: DatabaseSync | null = null;
 
 export function getDb(): DatabaseSync {
     if (!_db) {
-        const dir = resolve(homedir(), ".singularity");
+        const dir = resolve(homedir(), ".openclaw/singularity");
         mkdirSync(dir, { recursive: true });
         _db = new DatabaseSync(DB_PATH);
         _db.exec("PRAGMA journal_mode=WAL");

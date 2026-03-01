@@ -41,6 +41,8 @@ export class ActivityModule {
             LIMIT ? OFFSET ?
         `, [...values, limit, offset]);
 
+        console.log(data)
+
         return { data, total, limit, offset };
     }
 }

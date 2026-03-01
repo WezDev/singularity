@@ -27,6 +27,9 @@ export function status(args: string[]): void {
     console.log(`Run: ${run.id.slice(0, 8)}`);
     console.log(`Workflow: ${run.workflow}`);
     console.log(`Task: ${run.task}`);
+    if (run.scheduled_at) {
+        console.log(`Scheduled: ${run.scheduled_at}`);
+    }
     console.log(`Status: ${run.status}`);
     console.log();
     console.log("Steps:");

@@ -21,85 +21,165 @@ function parseFrontmatter(raw: string): { description?: string; content: string 
     };
 }
 
+interface TargetDir {
+    dir: string;
+    scope: "global" | "agent";
+    agentId?: string;
+}
+
 export class SkillsModule {
     constructor(private config: ResolvedSDKConfig) {}
 
-    async list(): Promise<Skill[]> {
-        const dir = this.config.skillsDir;
-        if (!existsSync(dir)) return [];
+    private agentSkillsDir(agentId: string): string {
+        return resolve(this.config.agentsBaseDir, agentId, "skills");
+    }
 
-        const entries = readdirSync(dir, { withFileTypes: true });
+    private resolveTargetDirs(target?: "global" | string[]): TargetDir[] {
+        if (!target || target === "global") {
+            return [{ dir: this.config.skillsDir, scope: "global" }];
+        }
+
+        const dirs: TargetDir[] = [];
+        for (const entry of target) {
+            if (entry === "global") {
+                dirs.push({ dir: this.config.skillsDir, scope: "global" });
+            } else {
+                dirs.push({ dir: this.agentSkillsDir(entry), scope: "agent", agentId: entry });
+            }
+        }
+        return dirs;
+    }
+
+    async list(options?: { agentId?: string }): Promise<Skill[]> {
+        const baseDir = options?.agentId
+            ? this.agentSkillsDir(options.agentId)
+            : this.config.skillsDir;
+        const scope: "global" | "agent" = options?.agentId ? "agent" : "global";
+
+        if (!existsSync(baseDir)) return [];
+
+        const entries = readdirSync(baseDir, { withFileTypes: true });
         const skills: Skill[] = [];
 
         for (const entry of entries) {
             if (!entry.isDirectory()) continue;
-            const skill = this.readSkill(entry.name);
+            const skill = this.readSkill(entry.name, baseDir, scope, options?.agentId);
             if (skill) skills.push(skill);
         }
 
         return skills;
     }
 
-    async get(skillId: string): Promise<Skill> {
-        const skill = this.readSkill(skillId);
+    async get(skillId: string, options?: { agentId?: string }): Promise<Skill> {
+        const baseDir = options?.agentId
+            ? this.agentSkillsDir(options.agentId)
+            : this.config.skillsDir;
+        const scope: "global" | "agent" = options?.agentId ? "agent" : "global";
+
+        const skill = this.readSkill(skillId, baseDir, scope, options?.agentId);
         if (!skill) throw new NotFoundError("Skill", skillId);
         return skill;
     }
 
     async create(params: CreateSkillParams): Promise<Skill> {
-        const skillDir = resolve(this.config.skillsDir, params.id);
-        mkdirSync(skillDir, { recursive: true });
+        const targetDirs = this.resolveTargetDirs(params.target);
+        let firstSkill: Skill | undefined;
 
-        const skillMd = buildSkillMd(params.description, params.content);
-        writeFileSync(join(skillDir, "SKILL.md"), skillMd);
+        for (const { dir, scope, agentId } of targetDirs) {
+            const skillDir = resolve(dir, params.id);
+            mkdirSync(skillDir, { recursive: true });
 
-        if (params.files) {
-            for (const [filename, content] of Object.entries(params.files)) {
-                writeFileSync(join(skillDir, filename), content);
+            const skillMd = buildSkillMd(params.description, params.content);
+            writeFileSync(join(skillDir, "SKILL.md"), skillMd);
+
+            if (params.files) {
+                for (const [filename, content] of Object.entries(params.files)) {
+                    writeFileSync(join(skillDir, filename), content);
+                }
+            }
+
+            if (!firstSkill) {
+                firstSkill = {
+                    id: params.id,
+                    path: skillDir,
+                    type: "workspace",
+                    hasSkillMd: true,
+                    description: params.description,
+                    content: params.content,
+                    scope,
+                    agentId,
+                };
             }
         }
 
-        return {
-            id: params.id,
-            path: skillDir,
-            type: "workspace",
-            hasSkillMd: true,
-            description: params.description,
-            content: params.content,
-        };
+        return firstSkill!;
     }
 
     async update(skillId: string, params: UpdateSkillParams): Promise<Skill> {
-        const skill = await this.get(skillId);
+        const targetDirs = params.target
+            ? this.resolveTargetDirs(params.target)
+            : [{ dir: this.config.skillsDir, scope: "global" as const }];
 
-        if (params.description !== undefined || params.content !== undefined) {
-            const description = params.description ?? skill.description ?? "";
-            const content = params.content ?? skill.content ?? "";
-            const skillMd = buildSkillMd(description, content);
-            writeFileSync(join(skill.path, "SKILL.md"), skillMd);
-        }
+        let firstSkill: Skill | undefined;
 
-        if (params.files) {
-            for (const [filename, content] of Object.entries(params.files)) {
-                writeFileSync(join(skill.path, filename), content);
+        for (const { dir, scope, agentId } of targetDirs) {
+            const skillDir = resolve(dir, skillId);
+            const existing = this.readSkill(skillId, dir, scope, agentId);
+
+            if (params.description !== undefined || params.content !== undefined) {
+                const description = params.description ?? existing?.description ?? "";
+                const content = params.content ?? existing?.content ?? "";
+                mkdirSync(skillDir, { recursive: true });
+                const skillMd = buildSkillMd(description, content);
+                writeFileSync(join(skillDir, "SKILL.md"), skillMd);
+            }
+
+            if (params.files) {
+                mkdirSync(skillDir, { recursive: true });
+                for (const [filename, content] of Object.entries(params.files)) {
+                    writeFileSync(join(skillDir, filename), content);
+                }
+            }
+
+            if (!firstSkill) {
+                firstSkill = {
+                    id: skillId,
+                    path: skillDir,
+                    type: "workspace",
+                    hasSkillMd: true,
+                    description: params.description ?? existing?.description,
+                    content: params.content ?? existing?.content,
+                    scope,
+                    agentId,
+                };
             }
         }
 
-        return {
-            ...skill,
-            description: params.description ?? skill.description,
-            content: params.content ?? skill.content,
-        };
+        // If no target was specified and the skill wasn't found in global, throw
+        if (!params.target && !existsSync(resolve(this.config.skillsDir, skillId))) {
+            throw new NotFoundError("Skill", skillId);
+        }
+
+        return firstSkill!;
     }
 
-    async delete(skillId: string): Promise<void> {
-        const skillDir = resolve(this.config.skillsDir, skillId);
+    async delete(skillId: string, options?: { agentId?: string }): Promise<void> {
+        const baseDir = options?.agentId
+            ? this.agentSkillsDir(options.agentId)
+            : this.config.skillsDir;
+
+        const skillDir = resolve(baseDir, skillId);
         if (!existsSync(skillDir)) throw new NotFoundError("Skill", skillId);
         rmSync(skillDir, { recursive: true, force: true });
     }
 
-    private readSkill(skillId: string): Skill | null {
-        const skillDir = resolve(this.config.skillsDir, skillId);
+    private readSkill(
+        skillId: string,
+        baseDir: string = this.config.skillsDir,
+        scope: "global" | "agent" = "global",
+        agentId?: string,
+    ): Skill | null {
+        const skillDir = resolve(baseDir, skillId);
         if (!existsSync(skillDir)) return null;
 
         const skillMdPath = join(skillDir, "SKILL.md");
@@ -121,6 +201,8 @@ export class SkillsModule {
             hasSkillMd,
             description,
             content,
+            scope,
+            agentId,
         };
     }
 }

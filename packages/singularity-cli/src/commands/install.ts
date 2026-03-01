@@ -5,7 +5,15 @@ import { parseWorkflow } from "../installer/workflow-spec.js";
 import { installWorkflow } from "./workflow/install.js";
 import { getWorkflowsDir } from "../paths.js";
 
-export async function install(_args: string[]): Promise<void> {
+export async function install(args: string[]): Promise<void> {
+    const workflowId = args[0];
+
+    // If a specific workflow ID was given, delegate to the single-workflow installer
+    if (workflowId) {
+        const { install: installSingle } = await import("./workflow/install.js");
+        return installSingle(args);
+    }
+
     const dir = getWorkflowsDir();
     let files: string[];
     try {

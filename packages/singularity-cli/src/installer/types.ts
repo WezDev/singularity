@@ -55,6 +55,7 @@ export interface RunRow {
     status: "running" | "done" | "failed" | "stopped";
     created_at: string;
     completed_at: string | null;
+    scheduled_at: string | null;
 }
 
 export interface StepRow {

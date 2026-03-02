@@ -41,17 +41,18 @@ export async function installWorkflow(spec: WorkflowSpec, workflowsDir: string):
             }
         }
 
-        // Register agent in config.json
-        await createAgent(agentId, workspacePath, agent.role, agent.description);
+        // Register agent in config.json (with model if specified)
+        await createAgent(agentId, workspacePath, agent.role, agent.description, agent.model);
 
         // Copy auth from main agent if not already configured
         copyAuthFromMainAgent(agentId);
 
-        // Create cron job
+        // Create cron job (pollingModel overrides agent model for polling sessions)
         const schedule = staggerSchedule(i, spec.agents.length);
         const prompt = buildPollingPrompt(spec.id, agentId);
         const cronName = `${agentId}_poll`;
-        await createCronJob(cronName, schedule, agentId, prompt);
+        const cronModel = agent.pollingModel ?? spec.polling?.model;
+        await createCronJob(cronName, schedule, agentId, prompt, cronModel);
 
         agentCount++;
     }

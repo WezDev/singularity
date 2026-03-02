@@ -26,6 +26,9 @@ function readStdin(): Promise<string> {
 
 export async function fail(args: string[]): Promise<void> {
     const stepId = parseArg(args, "--step");
+    const inputTokens = parseInt(parseArg(args, "--input-tokens") ?? "0", 10) || 0;
+    const outputTokens = parseInt(parseArg(args, "--output-tokens") ?? "0", 10) || 0;
+    const model = parseArg(args, "--model") ?? null;
 
     if (!stepId) {
         console.error("Usage: singularity step fail --step <uuid>");
@@ -49,7 +52,9 @@ export async function fail(args: string[]): Promise<void> {
     const run = queryOne<RunRow>("SELECT * FROM runs WHERE id = ?", step.run_id)!;
 
     const newRetryCount = step.retry_count + 1;
-    db.prepare("UPDATE steps SET retry_count = ?, output = ? WHERE id = ?").run(newRetryCount, output || null, step.id);
+    db.prepare(
+        "UPDATE steps SET retry_count = ?, output = ?, input_tokens = input_tokens + ?, output_tokens = output_tokens + ?, model = COALESCE(?, model) WHERE id = ?"
+    ).run(newRetryCount, output || null, inputTokens, outputTokens, model, step.id);
 
     let retryStep: string | undefined;
     let maxRetries = step.max_retries;

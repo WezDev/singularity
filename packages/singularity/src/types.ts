@@ -172,6 +172,9 @@ export interface Step {
     output: string | null;
     retryCount: number;
     maxRetries: number;
+    inputTokens: number;
+    outputTokens: number;
+    model: string | null;
     createdAt: string;
     claimedAt: string | null;
     completedAt: string | null;
@@ -293,9 +296,32 @@ export interface UpdateSkillParams {
 export interface UsageQuery {
     model?: string;
     agentId?: string;
+    runId?: string;
     days?: number;
     from?: string;
     to?: string;
+}
+
+export interface UsageByRun {
+    runId: string;
+    workflow: string;
+    task: string;
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+    estimatedCostUsd: number;
+    stepCount: number;
+}
+
+export interface UsageByStep {
+    stepId: string;
+    stepName: string;
+    agentId: string;
+    model: string | null;
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+    estimatedCostUsd: number;
 }
 
 export interface UsageSummary {
@@ -340,6 +366,7 @@ export interface Workflow {
     name: string;
     version: number;
     description: string;
+    status: "installed" | "not_installed";
     agents: WorkflowAgentDef[];
     runs: WorkflowRunDef[];
 }
@@ -349,6 +376,7 @@ export interface WorkflowAgentDef {
     name: string;
     role: string;
     description: string;
+    model?: string;
 }
 
 export interface WorkflowStepDef {

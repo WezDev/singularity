@@ -30,6 +30,9 @@ interface StoryInput {
 
 export async function complete(args: string[]): Promise<void> {
     const stepId = parseArg(args, "--step");
+    const inputTokens = parseInt(parseArg(args, "--input-tokens") ?? "0", 10) || 0;
+    const outputTokens = parseInt(parseArg(args, "--output-tokens") ?? "0", 10) || 0;
+    const model = parseArg(args, "--model") ?? null;
 
     if (!stepId) {
         console.error("Usage: singularity step complete --step <uuid>");
@@ -51,10 +54,15 @@ export async function complete(args: string[]): Promise<void> {
     }
 
     db.prepare(
-        "UPDATE steps SET status = 'done', output = ?, completed_at = datetime('now') WHERE id = ?"
-    ).run(output || null, step.id);
+        "UPDATE steps SET status = 'done', output = ?, input_tokens = input_tokens + ?, output_tokens = output_tokens + ?, model = COALESCE(?, model), completed_at = datetime('now') WHERE id = ?"
+    ).run(output || null, inputTokens, outputTokens, model, step.id);
 
-    insertEvent(step.run_id, step.id, "step.completed", { output: output?.slice(0, 200) });
+    insertEvent(step.run_id, step.id, "step.completed", {
+        output: output?.slice(0, 200),
+        inputTokens,
+        outputTokens,
+        model,
+    });
 
     const storiesMatch = output.match(/STORIES_JSON:\s*(\[[\s\S]*?\])/);
     if (storiesMatch) {

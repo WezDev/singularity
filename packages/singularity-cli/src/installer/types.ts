@@ -20,6 +20,7 @@ export interface WorkflowAgent {
     name: string;
     role: "coding" | "analysis" | "review";
     description: string;
+    model?: string;
     timeoutSeconds?: number;
     pollingModel?: string;
     workspace: {
@@ -76,6 +77,9 @@ export interface StepRow {
     output: string | null;
     retry_count: number;
     max_retries: number;
+    input_tokens: number;
+    output_tokens: number;
+    model: string | null;
     created_at: string;
     claimed_at: string | null;
     completed_at: string | null;

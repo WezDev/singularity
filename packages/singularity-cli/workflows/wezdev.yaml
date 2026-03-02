@@ -9,15 +9,24 @@ agents:
     role: analysis
     description: Explores codebases and creates detailed implementation plans from
       task descriptions.
+    workspace:
+      files:
+        AGENTS.md: agents/wezdev/planner/AGENTS.md
   - id: coder
     name: Coder
     role: coding
     description: Implements the plan on a feature branch with clean commits.
+    workspace:
+      files:
+        AGENTS.md: agents/wezdev/coder/AGENTS.md
   - id: reviewer
     name: Reviewer
     role: review
     description: Reviews code against acceptance criteria, creates PR on approval or
       reports failures.
+    workspace:
+      files:
+        AGENTS.md: agents/wezdev/reviewer/AGENTS.md
 runs:
   - id: implement-ticket
     name: Implement Ticket

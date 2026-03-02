@@ -3,7 +3,7 @@ import { resolve, basename } from "node:path";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import type {
     ResolvedSDKConfig, Workflow, WorkflowStepDef, WorkflowRunDef,
-    CreateWorkflowParams, UpdateWorkflowParams,
+    CreateWorkflowParams, UpdateWorkflowParams, AgentConfigEntry,
 } from "../types.js";
 import { NotFoundError } from "../errors.js";
 
@@ -93,7 +93,8 @@ function parseYamlWorkflow(filePath: string): Workflow {
         name: doc.name,
         version: doc.version,
         description: doc.description,
-        agents: doc.agents.map(a => ({ id: a.id, name: a.name, role: a.role, description: a.description })),
+        status: "not_installed",
+        agents: doc.agents.map(a => ({ id: a.id, name: a.name, role: a.role, description: a.description, ...(a.model && { model: a.model }) })),
         runs: doc.runs.map(yamlRunToSdk),
     };
 }
@@ -124,16 +125,41 @@ export class WorkflowsModule {
         return match ? resolve(this.dir, match) : null;
     }
 
+    private getInstalledAgentIds(): Set<string> {
+        try {
+            const raw = JSON.parse(readFileSync(this.config.configPath, "utf-8"));
+            const agents: AgentConfigEntry[] = Array.isArray(raw?.agents)
+                ? raw.agents
+                : (raw?.agents as { list?: AgentConfigEntry[] })?.list ?? [];
+            return new Set(agents.map(a => a.id));
+        } catch {
+            return new Set();
+        }
+    }
+
+    private resolveStatus(workflow: Workflow): Workflow {
+        const installedIds = this.getInstalledAgentIds();
+        const allInstalled = workflow.agents.length > 0
+            && workflow.agents.every(a => installedIds.has(`${workflow.id}_${a.id}`));
+        return { ...workflow, status: allInstalled ? "installed" : "not_installed" };
+    }
+
     async list(): Promise<Workflow[]> {
         if (!existsSync(this.dir)) return [];
         const files = readdirSync(this.dir).filter(f => f.endsWith(".yaml") || f.endsWith(".yml"));
-        return files.map(f => parseYamlWorkflow(resolve(this.dir, f)));
+        const installedIds = this.getInstalledAgentIds();
+        return files.map(f => {
+            const wf = parseYamlWorkflow(resolve(this.dir, f));
+            const allInstalled = wf.agents.length > 0
+                && wf.agents.every(a => installedIds.has(`${wf.id}_${a.id}`));
+            return { ...wf, status: allInstalled ? "installed" as const : "not_installed" as const };
+        });
     }
 
     async get(id: string): Promise<Workflow> {
         const filePath = this.findFile(id);
         if (!filePath) throw new NotFoundError("Workflow", id);
-        return parseYamlWorkflow(filePath);
+        return this.resolveStatus(parseYamlWorkflow(filePath));
     }
 
     async create(params: CreateWorkflowParams): Promise<Workflow> {

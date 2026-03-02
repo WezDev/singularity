@@ -8,6 +8,7 @@ export async function createAgent(
     workspace: string,
     role: string,
     description?: string,
+    model?: string,
 ): Promise<void> {
     try {
         await sdk.agents.create({
@@ -15,6 +16,7 @@ export async function createAgent(
             workspace,
             role,
             description,
+            model,
         });
     } catch (err) {
         // Agent may already exist
@@ -36,6 +38,7 @@ export async function createCronJob(
     schedule: string,
     agentId: string,
     message: string,
+    model?: string,
 ): Promise<void> {
     const cronSchedule: CronSchedule = {
         kind: "cron",
@@ -44,6 +47,7 @@ export async function createCronJob(
     const payload: CronPayload = {
         kind: "agentTurn",
         message,
+        ...(model && { model }),
     };
 
     try {

@@ -37,6 +37,9 @@ export function status(args: string[]): void {
     console.log();
     console.log("Steps:");
 
+    let runInputTokens = 0;
+    let runOutputTokens = 0;
+
     for (const step of steps) {
         const statusStr = step.status.padEnd(7);
         let line = `  [${statusStr}] ${step.step_name} (${step.agent_id.split("_").pop()})`;
@@ -52,6 +55,20 @@ export function status(args: string[]): void {
             }
         }
 
+        const totalTokens = (step.input_tokens ?? 0) + (step.output_tokens ?? 0);
+        if (totalTokens > 0) {
+            line += `  Tokens: ${totalTokens.toLocaleString()}`;
+            if (step.model) line += ` (${step.model})`;
+        }
+
+        runInputTokens += step.input_tokens ?? 0;
+        runOutputTokens += step.output_tokens ?? 0;
+
         console.log(line);
+    }
+
+    if (runInputTokens + runOutputTokens > 0) {
+        console.log();
+        console.log(`Total tokens: ${(runInputTokens + runOutputTokens).toLocaleString()} (in: ${runInputTokens.toLocaleString()}, out: ${runOutputTokens.toLocaleString()})`);
     }
 }

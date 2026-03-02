@@ -27,6 +27,9 @@ CREATE TABLE IF NOT EXISTS steps (
     output TEXT,
     retry_count INTEGER DEFAULT 0,
     max_retries INTEGER DEFAULT 2,
+    input_tokens INTEGER DEFAULT 0,
+    output_tokens INTEGER DEFAULT 0,
+    model TEXT,
     created_at TEXT DEFAULT (datetime('now')),
     claimed_at TEXT,
     completed_at TEXT,
@@ -78,6 +81,18 @@ export function initDb(): void {
         db.exec("ALTER TABLE runs ADD COLUMN run_spec TEXT");
     } catch {
         // Column already exists
+    }
+    // Migrate: add token tracking columns to steps
+    for (const col of [
+        "input_tokens INTEGER DEFAULT 0",
+        "output_tokens INTEGER DEFAULT 0",
+        "model TEXT",
+    ]) {
+        try {
+            db.exec(`ALTER TABLE steps ADD COLUMN ${col}`);
+        } catch {
+            // Column already exists
+        }
     }
 }
 

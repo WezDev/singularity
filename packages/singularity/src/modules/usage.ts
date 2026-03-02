@@ -1,6 +1,6 @@
 import { DatabaseSync, type SQLInputValue } from "node:sqlite";
 import { existsSync } from "node:fs";
-import type { ResolvedSDKConfig, UsageQuery, UsageSummary, UsageByModel, UsageByAgent, UsageByRun, UsageByStep } from "../types.js";
+import type { ResolvedSDKConfig, UsageQuery, UsageSummary, UsageByModel, UsageByAgent, UsageByRun, UsageByStep, UsageByDay } from "../types.js";
 
 const MODEL_COSTS: Record<string, { input: number; output: number }> = {
     "claude-opus-4-6": { input: 15 / 1_000_000, output: 75 / 1_000_000 },
@@ -130,6 +130,40 @@ export class UsageModule {
             const outputTokens = Number(row.output_tokens);
             return {
                 agentId: String(row.agent_id),
+                inputTokens,
+                outputTokens,
+                totalTokens: inputTokens + outputTokens,
+                estimatedCostUsd: estimateCost(null, inputTokens, outputTokens),
+                sessionCount: Number(row.session_count),
+            };
+        });
+    }
+
+    async byDay(params: UsageQuery = {}): Promise<UsageByDay[]> {
+        if (!this.hasStepsTable()) return [];
+
+        const { conditions, values } = this.buildFilter(params);
+        const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+
+        const db = this.getDb();
+        const rows = db.prepare(`
+            SELECT
+                DATE(s.created_at) as date,
+                COALESCE(SUM(s.input_tokens), 0) as input_tokens,
+                COALESCE(SUM(s.output_tokens), 0) as output_tokens,
+                COUNT(*) as session_count
+            FROM steps s
+            LEFT JOIN runs r ON s.run_id = r.id
+            ${where}
+            GROUP BY DATE(s.created_at)
+            ORDER BY DATE(s.created_at) ASC
+        `).all(...values) as Record<string, unknown>[];
+
+        return rows.map(row => {
+            const inputTokens = Number(row.input_tokens);
+            const outputTokens = Number(row.output_tokens);
+            return {
+                date: String(row.date),
                 inputTokens,
                 outputTokens,
                 totalTokens: inputTokens + outputTokens,

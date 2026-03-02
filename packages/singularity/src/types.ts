@@ -352,6 +352,15 @@ export interface UsageByAgent {
     sessionCount: number;
 }
 
+export interface UsageByDay {
+    date: string;
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+    estimatedCostUsd: number;
+    sessionCount: number;
+}
+
 // Workflows
 
 export interface WorkflowRunDef {

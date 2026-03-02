@@ -1,10 +1,17 @@
+export interface RunTemplate {
+    id: string;
+    name: string;
+    description: string;
+    steps: WorkflowStep[];
+}
+
 export interface WorkflowSpec {
     id: string;
     name: string;
     version: number;
     description: string;
     agents: WorkflowAgent[];
-    steps: WorkflowStep[];
+    runs: RunTemplate[];
     polling?: PollingConfig;
 }
 
@@ -53,6 +60,7 @@ export interface RunRow {
     workflow: string;
     task: string;
     status: "running" | "done" | "failed" | "stopped";
+    run_spec: string | null;
     created_at: string;
     completed_at: string | null;
     scheduled_at: string | null;

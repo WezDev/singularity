@@ -61,7 +61,12 @@ export async function fail(args: string[]): Promise<void> {
         const yamlFile = files.find(f => f.replace(/\.ya?ml$/, "") === run.workflow);
         if (yamlFile) {
             const spec = parseWorkflow(join(dir, yamlFile));
-            const stepSpec = spec.steps.find(s => s.id === step.step_name);
+            // Find the step in the correct run template
+            const runSpecId = run.run_spec;
+            const runTemplate = runSpecId
+                ? spec.runs.find(r => r.id === runSpecId)
+                : spec.runs[0];
+            const stepSpec = runTemplate?.steps.find(s => s.id === step.step_name);
             if (stepSpec?.on_fail) {
                 retryStep = stepSpec.on_fail.retry_step;
                 if (stepSpec.on_fail.max_retries !== undefined) {

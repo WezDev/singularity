@@ -20,6 +20,14 @@ import { createSingularitySDK } from "./src/index";
     
             const usage = await singluaritySdk.usage.summary();
             console.log("USAGE", usage);
+
+            const workflows = await singluaritySdk.workflows.list();
+            console.log("WORKFLOWS", workflows);
+
+            const tasks = await singluaritySdk.tasks.list();
+            console.log("TASKS", tasks, tasks?.data[0].steps, tasks?.data[0].progress);
+            console.log("STEPS",tasks?.data[0].steps);
+            console.log("PROGRESS",tasks?.data[0].progress);
         }
         if (settings.enableWrites) {
             

@@ -24,18 +24,21 @@ export function runs(_args: string[]): void {
     console.log(
         "ID".padEnd(10) +
         "Workflow".padEnd(16) +
-        "Task".padEnd(30) +
+        "Run".padEnd(14) +
+        "Task".padEnd(26) +
         "Status".padEnd(10) +
         "Age"
     );
 
     for (const run of allRuns) {
         const id = run.id.slice(0, 8);
-        const task = run.task.length > 27 ? run.task.slice(0, 27) + "..." : run.task;
+        const runSpec = (run.run_spec ?? "-").padEnd(14);
+        const task = run.task.length > 23 ? run.task.slice(0, 23) + "..." : run.task;
         console.log(
             id.padEnd(10) +
             run.workflow.padEnd(16) +
-            task.padEnd(30) +
+            runSpec +
+            task.padEnd(26) +
             run.status.padEnd(10) +
             timeAgo(run.created_at)
         );

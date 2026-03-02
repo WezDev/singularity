@@ -9,6 +9,10 @@ importers:
   .: {}
 
   packages/singularity:
+    dependencies:
+      yaml:
+        specifier: ^2.8.2
+        version: 2.8.2
     devDependencies:
       '@types/node':
         specifier: ^22.0.0

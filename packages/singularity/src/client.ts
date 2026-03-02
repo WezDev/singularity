@@ -1,6 +1,7 @@
-import { resolve } from "node:path";
-import { readFileSync } from "node:fs";
+import { resolve, dirname } from "node:path";
+import { readFileSync, realpathSync, existsSync } from "node:fs";
 import { homedir } from "node:os";
+import { execSync } from "node:child_process";
 import type { SDKConfig, ResolvedSDKConfig } from "./types.js";
 import { HttpTransport } from "./transport/http.js";
 import { CliTransport } from "./transport/cli.js";
@@ -11,11 +12,37 @@ import { DatabaseModule } from "./modules/database.js";
 import { ActivityModule } from "./modules/activity.js";
 import { ConfigModule } from "./modules/config.js";
 import { SkillsModule } from "./modules/skills.js";
+import { WorkflowsModule } from "./modules/workflows.js";
+import { TasksModule } from "./modules/tasks.js";
 
 interface DiscoveredDefaults {
     gatewayUrl?: string;
     authToken?: string;
     workspace?: string;
+}
+
+function discoverWorkflowsDir(cliBinary: string): string | null {
+    // 1. Try to find workflows/ alongside the CLI binary
+    try {
+        const binPath = execSync(`which ${cliBinary}`, { encoding: "utf-8" }).trim();
+        const realPath = realpathSync(binPath);
+        const dir = dirname(realPath);
+        const pkgRoot = dir.endsWith("/dist") ? resolve(dir, "..") : dir;
+        const candidate = resolve(pkgRoot, "workflows");
+        if (existsSync(candidate)) return candidate;
+    } catch {
+        // binary not found
+    }
+
+    // 2. Walk up from CWD to find a monorepo CLI package (dev environment)
+    let dir = process.cwd();
+    while (dir !== dirname(dir)) {
+        const candidate = resolve(dir, "packages/singularity-cli/workflows");
+        if (existsSync(candidate)) return candidate;
+        dir = dirname(dir);
+    }
+
+    return null;
 }
 
 function discoverFromOpenClaw(): DiscoveredDefaults {
@@ -51,16 +78,23 @@ export function resolveConfig(config?: SDKConfig): ResolvedSDKConfig {
     const openclawDir = resolve(home, ".openclaw");
     const singularityDir = resolve(openclawDir, "singularity");
     const workspace = discovered.workspace ?? resolve(openclawDir, "workspace");
+    const cliBinary = config?.cliBinary ?? "openclaw";
+
+    let workflowsDir = config?.workflowsDir;
+    if (!workflowsDir) {
+        workflowsDir = discoverWorkflowsDir(cliBinary) ?? resolve(openclawDir, "singularity/workflows");
+    }
 
     return {
         gatewayUrl: config?.gatewayUrl ?? discovered.gatewayUrl ?? "http://127.0.0.1:18789",
         authToken: config?.authToken ?? discovered.authToken,
-        cliBinary: config?.cliBinary ?? "openclaw",
+        cliBinary,
         dbPath: config?.dbPath ?? resolve(singularityDir, "state.db"),
         configPath: config?.configPath ?? resolve(openclawDir, "openclaw.json"),
         cronStorePath: config?.cronStorePath ?? resolve(singularityDir, "cron/jobs.json"),
         skillsDir: config?.skillsDir ?? resolve(workspace, "skills"),
         agentsBaseDir: config?.agentsBaseDir ?? resolve(openclawDir, "agents"),
+        workflowsDir,
     };
 }
 
@@ -72,6 +106,8 @@ export class SingularitySDK {
     public readonly activity: ActivityModule;
     public readonly config: ConfigModule;
     public readonly skills: SkillsModule;
+    public readonly workflows: WorkflowsModule;
+    public readonly tasks: TasksModule;
 
     constructor(sdkConfig?: SDKConfig) {
         const resolved = resolveConfig(sdkConfig);
@@ -85,5 +121,7 @@ export class SingularitySDK {
         this.activity = new ActivityModule(resolved);
         this.config = new ConfigModule(resolved);
         this.skills = new SkillsModule(resolved);
+        this.workflows = new WorkflowsModule(resolved);
+        this.tasks = new TasksModule(resolved, this.workflows);
     }
 }

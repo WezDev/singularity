@@ -1,0 +1,103 @@
+id: validation-pipeline
+name: Validation Pipeline
+version: 1
+description: End-to-end validation workflow with analyst, builder, and reviewer agents.
+
+agents:
+  - id: analyst
+    name: Analyst
+    role: analysis
+    description: Breaks down the task into requirements and acceptance criteria.
+    workspace:
+      files:
+        AGENTS.md: agents/validation-pipeline/analyst/AGENTS.md
+
+  - id: builder
+    name: Builder
+    role: coding
+    description: Implements a solution based on requirements and acceptance criteria.
+    timeoutSeconds: 1200
+    workspace:
+      files:
+        AGENTS.md: agents/validation-pipeline/builder/AGENTS.md
+
+  - id: reviewer
+    name: Reviewer
+    role: review
+    description: Validates the solution against acceptance criteria.
+    workspace:
+      files:
+        AGENTS.md: agents/validation-pipeline/reviewer/AGENTS.md
+
+runs:
+  - id: validate
+    name: Validate
+    description: Full analysis, build, and review pipeline
+    steps:
+      - id: analyze
+        agent: analyst
+        input: |
+          Task: {{task}}
+
+          Analyze this task. Break it down into concrete requirements and
+          testable acceptance criteria.
+
+          Reply with:
+          STATUS: done
+          REQUIREMENTS: <numbered list of requirements>
+          ACCEPTANCE_CRITERIA: <numbered list of testable criteria>
+        expects: "STATUS: done"
+
+      - id: build
+        agent: builder
+        input: |
+          Task: {{task}}
+
+          Requirements:
+          {{requirements}}
+
+          Acceptance Criteria:
+          {{acceptance_criteria}}
+
+          Previous review feedback (if any):
+          {{verify_feedback}}
+
+          Implement a solution that satisfies all requirements and acceptance criteria.
+          If there is review feedback above, address every issue raised.
+
+          Reply with:
+          STATUS: done
+          SOLUTION: <your complete solution>
+        expects: "STATUS: done"
+        max_retries: 3
+
+      - id: review
+        agent: reviewer
+        input: |
+          Task: {{task}}
+
+          Requirements:
+          {{requirements}}
+
+          Acceptance Criteria:
+          {{acceptance_criteria}}
+
+          Solution:
+          {{solution}}
+
+          Review the solution against every acceptance criterion.
+          If ALL criteria are met, approve. If ANY criterion is not met, reject
+          with specific feedback.
+
+          Reply with either:
+            STATUS: done
+            VERDICT: approved
+          OR:
+            STATUS: failed
+            ISSUES: <specific feedback on what needs to be fixed>
+        expects: "STATUS: done"
+        on_fail:
+          retry_step: build
+          max_retries: 2
+          on_exhausted:
+            escalate_to: human

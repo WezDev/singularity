@@ -21,30 +21,34 @@ agents:
       files:
         AGENTS.md: agents/my-workflow/executor/AGENTS.md
 
-steps:
-  - id: plan
-    agent: planner
-    input: |
-      Task: {{task}}
+runs:
+  - id: default
+    name: Default
+    description: Plan and execute
+    steps:
+      - id: plan
+        agent: planner
+        input: |
+          Task: {{task}}
 
-      Analyze this task and create a plan.
+          Analyze this task and create a plan.
 
-      Reply with:
-      STATUS: done
-      PLAN_NOTES: <your plan>
-    expects: "STATUS: done"
+          Reply with:
+          STATUS: done
+          PLAN_NOTES: <your plan>
+        expects: "STATUS: done"
 
-  - id: execute
-    agent: executor
-    input: |
-      Task: {{task}}
+      - id: execute
+        agent: executor
+        input: |
+          Task: {{task}}
 
-      Plan:
-      {{plan_notes}}
+          Plan:
+          {{plan_notes}}
 
-      Implement the plan above.
+          Implement the plan above.
 
-      Reply with:
-      STATUS: done
-      RESULT: <summary of what was done>
-    expects: "STATUS: done"
+          Reply with:
+          STATUS: done
+          RESULT: <summary of what was done>
+        expects: "STATUS: done"

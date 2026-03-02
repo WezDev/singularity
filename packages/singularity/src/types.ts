@@ -9,6 +9,7 @@ export interface SDKConfig {
     cronStorePath?: string;
     skillsDir?: string;
     agentsBaseDir?: string;
+    workflowsDir?: string;
 }
 
 export interface ResolvedSDKConfig {
@@ -20,6 +21,7 @@ export interface ResolvedSDKConfig {
     cronStorePath: string;
     skillsDir: string;
     agentsBaseDir: string;
+    workflowsDir: string;
 }
 
 // Agents
@@ -142,7 +144,8 @@ export interface Run {
     id: string;
     workflow: string;
     task: string;
-    status: "running" | "done" | "failed" | "stopped";
+    status: "ready" | "scheduled" | "done" | "failed" | "stopped";
+    runSpec: string | null;
     createdAt: string;
     completedAt: string | null;
     scheduledAt: string | null;
@@ -321,4 +324,73 @@ export interface UsageByAgent {
     totalTokens: number;
     estimatedCostUsd: number;
     sessionCount: number;
+}
+
+// Workflows
+
+export interface WorkflowRunDef {
+    id: string;
+    name: string;
+    description: string;
+    steps: WorkflowStepDef[];
+}
+
+export interface Workflow {
+    id: string;
+    name: string;
+    version: number;
+    description: string;
+    agents: WorkflowAgentDef[];
+    runs: WorkflowRunDef[];
+}
+
+export interface WorkflowAgentDef {
+    id: string;
+    name: string;
+    role: string;
+    description: string;
+}
+
+export interface WorkflowStepDef {
+    id: string;
+    agent: string;
+    input: string;
+    expects: string;
+    type?: string;
+    loop?: { over: string; completion: string };
+    maxRetries?: number;
+    onFail?: { retryStep?: string; maxRetries?: number; onExhausted?: { escalateTo: string } };
+}
+
+export interface CreateWorkflowParams {
+    id: string;
+    name: string;
+    version?: number;
+    description: string;
+    agents: WorkflowAgentDef[];
+    runs: WorkflowRunDef[];
+}
+
+export interface UpdateWorkflowParams {
+    name?: string;
+    description?: string;
+    agents?: WorkflowAgentDef[];
+    runs?: WorkflowRunDef[];
+}
+
+// Tasks (maps to runs/steps in the DB)
+
+export interface CreateTaskParams {
+    workflowId: string;
+    task: string;
+    runId?: string;
+    scheduledAt?: string;
+}
+
+export interface UpdateTaskParams {
+    status?: "ready" | "stopped";
+}
+
+export interface UpdateSubtaskParams {
+    status?: "ready" | "stopped";
 }

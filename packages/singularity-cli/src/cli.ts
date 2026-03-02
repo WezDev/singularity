@@ -98,7 +98,8 @@ async function main() {
 Commands:
   install                     Provision all workflows
   uninstall [--force]         Full teardown
-  workflow run <id> <task>    Start a workflow run
+  workflow run <id> [--run <run-id>] <task>
+                            Start a workflow run
   workflow status <query>     Check run status
   workflow list               List available workflows
   workflow runs               List all runs

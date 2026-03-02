@@ -7,6 +7,31 @@ function parseArg(args: string[], flag: string): string | undefined {
     return args[idx + 1];
 }
 
+function parseStepOutputMultiline(output: string): Record<string, string> {
+    const result: Record<string, string> = {};
+    const lines = output.split("\n");
+    let currentKey: string | null = null;
+    let currentLines: string[] = [];
+
+    for (const line of lines) {
+        const match = line.match(/^([A-Z_]+):\s*(.*)$/);
+        if (match) {
+            if (currentKey) {
+                result[currentKey] = currentLines.join("\n").trim();
+            }
+            currentKey = match[1].toLowerCase();
+            currentLines = match[2].trim() ? [match[2].trim()] : [];
+        } else if (currentKey) {
+            currentLines.push(line);
+        }
+    }
+    if (currentKey) {
+        result[currentKey] = currentLines.join("\n").trim();
+    }
+
+    return result;
+}
+
 function resolveTemplateVariables(
     input: string,
     run: RunRow,
@@ -18,13 +43,9 @@ function resolveTemplateVariables(
 
     for (const step of previousSteps) {
         if (step.output) {
-            for (const line of step.output.split("\n")) {
-                const match = line.match(/^([A-Z_]+):\s*(.+)$/);
-                if (match) {
-                    const key = match[1].toLowerCase();
-                    const value = match[2].trim();
-                    resolved = resolved.replace(new RegExp(`\\{\\{${key}\\}\\}`, "g"), value);
-                }
+            const parsed = parseStepOutputMultiline(step.output);
+            for (const [key, value] of Object.entries(parsed)) {
+                resolved = resolved.replace(new RegExp(`\\{\\{${key}\\}\\}`, "g"), value);
             }
         }
     }

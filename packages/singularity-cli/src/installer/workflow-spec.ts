@@ -8,17 +8,22 @@ export function parseWorkflow(yamlPath: string): WorkflowSpec {
 
     if (!doc.id) throw new Error(`Workflow missing 'id' field in ${yamlPath}`);
     if (!doc.name) throw new Error(`Workflow missing 'name' field in ${yamlPath}`);
-    if (!doc.steps || doc.steps.length === 0) throw new Error(`Workflow missing 'steps' in ${yamlPath}`);
+    if (!doc.runs || doc.runs.length === 0) throw new Error(`Workflow missing 'runs' in ${yamlPath}`);
     if (!doc.agents || doc.agents.length === 0) throw new Error(`Workflow missing 'agents' in ${yamlPath}`);
 
-    for (const step of doc.steps) {
-        if (!step.id) throw new Error(`Step missing 'id' in ${yamlPath}`);
-        if (!step.agent) throw new Error(`Step '${step.id}' missing 'agent' in ${yamlPath}`);
-        if (!step.input) throw new Error(`Step '${step.id}' missing 'input' in ${yamlPath}`);
+    for (const run of doc.runs) {
+        if (!run.id) throw new Error(`Run template missing 'id' in ${yamlPath}`);
+        if (!run.steps || run.steps.length === 0) throw new Error(`Run template '${run.id}' missing 'steps' in ${yamlPath}`);
 
-        const agentExists = doc.agents.some(a => a.id === step.agent);
-        if (!agentExists) {
-            throw new Error(`Step '${step.id}' references unknown agent '${step.agent}' in ${yamlPath}`);
+        for (const step of run.steps) {
+            if (!step.id) throw new Error(`Step missing 'id' in ${yamlPath}`);
+            if (!step.agent) throw new Error(`Step '${step.id}' missing 'agent' in ${yamlPath}`);
+            if (!step.input) throw new Error(`Step '${step.id}' missing 'input' in ${yamlPath}`);
+
+            const agentExists = doc.agents.some(a => a.id === step.agent);
+            if (!agentExists) {
+                throw new Error(`Step '${step.id}' references unknown agent '${step.agent}' in ${yamlPath}`);
+            }
         }
     }
 

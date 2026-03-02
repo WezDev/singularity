@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS runs (
     workflow TEXT NOT NULL,
     task TEXT NOT NULL,
     status TEXT DEFAULT 'running',
+    run_spec TEXT,
     created_at TEXT DEFAULT (datetime('now')),
     completed_at TEXT,
     scheduled_at TEXT
@@ -72,6 +73,12 @@ export function getDb(): DatabaseSync {
 export function initDb(): void {
     const db = getDb();
     db.exec(SCHEMA_SQL);
+    // Migrate: add run_spec column if missing (pre-runs DBs)
+    try {
+        db.exec("ALTER TABLE runs ADD COLUMN run_spec TEXT");
+    } catch {
+        // Column already exists
+    }
 }
 
 export function dbExists(): boolean {

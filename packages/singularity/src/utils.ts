@@ -22,12 +22,26 @@ export function parseJsonColumn<T>(value: string | null): T | null {
 export function parseStepOutput(output: string | null): Record<string, string> {
     if (!output) return {};
     const result: Record<string, string> = {};
-    for (const line of output.split("\n")) {
-        const match = line.match(/^([A-Z_]+):\s*(.+)$/);
+    const lines = output.split("\n");
+    let currentKey: string | null = null;
+    let currentLines: string[] = [];
+
+    for (const line of lines) {
+        const match = line.match(/^([A-Z_]+):\s*(.*)$/);
         if (match) {
-            result[match[1].toLowerCase()] = match[2].trim();
+            if (currentKey) {
+                result[currentKey] = currentLines.join("\n").trim();
+            }
+            currentKey = match[1].toLowerCase();
+            currentLines = match[2].trim() ? [match[2].trim()] : [];
+        } else if (currentKey) {
+            currentLines.push(line);
         }
     }
+    if (currentKey) {
+        result[currentKey] = currentLines.join("\n").trim();
+    }
+
     return result;
 }
 

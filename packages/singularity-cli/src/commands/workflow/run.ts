@@ -14,12 +14,20 @@ function parseFlag(args: string[], flag: string): { value: string | undefined; r
 }
 
 export function run(args: string[]): void {
-    const { value: scheduledAt, remaining } = parseFlag(args, "--at");
+    let remaining = args;
+    const scheduledResult = parseFlag(remaining, "--at");
+    const scheduledAt = scheduledResult.value;
+    remaining = scheduledResult.remaining;
+
+    const runFlagResult = parseFlag(remaining, "--run");
+    const runTemplateId = runFlagResult.value;
+    remaining = runFlagResult.remaining;
+
     const workflowId = remaining[0];
     const task = remaining.slice(1).join(" ");
 
     if (!workflowId || !task) {
-        console.error("Usage: singularity workflow run <workflow-id> [--at <ISO8601>] <task>");
+        console.error("Usage: singularity workflow run <workflow-id> [--run <run-id>] [--at <ISO8601>] <task>");
         process.exit(1);
     }
 
@@ -40,16 +48,32 @@ export function run(args: string[]): void {
 
     const spec = parseWorkflow(join(dir, yamlFile));
 
+    // Resolve the run template
+    let runTemplate;
+    if (runTemplateId) {
+        runTemplate = spec.runs.find(r => r.id === runTemplateId);
+        if (!runTemplate) {
+            console.error(`Run template '${runTemplateId}' not found. Available: ${spec.runs.map(r => r.id).join(", ")}`);
+            process.exit(1);
+        }
+    } else if (spec.runs.length === 1) {
+        runTemplate = spec.runs[0];
+    } else {
+        console.error(`Workflow '${workflowId}' has multiple run templates. Use --run <id> to specify one.`);
+        console.error(`Available: ${spec.runs.map(r => `${r.id} (${r.name})`).join(", ")}`);
+        process.exit(1);
+    }
+
     initDb();
     const db = getDb();
     const runId = randomUUID();
 
     db.prepare(
-        "INSERT INTO runs (id, workflow, task, status, scheduled_at) VALUES (?, ?, ?, 'running', ?)"
-    ).run(runId, spec.id, task, scheduledAt ?? null);
+        "INSERT INTO runs (id, workflow, task, status, run_spec, scheduled_at) VALUES (?, ?, ?, 'running', ?, ?)"
+    ).run(runId, spec.id, task, runTemplate.id, scheduledAt ?? null);
 
-    for (let i = 0; i < spec.steps.length; i++) {
-        const step = spec.steps[i];
+    for (let i = 0; i < runTemplate.steps.length; i++) {
+        const step = runTemplate.steps[i];
         const stepId = randomUUID();
         const status = i === 0 ? "ready" : "pending";
         const agentId = `${spec.id}_${step.agent}`;
@@ -60,15 +84,16 @@ export function run(args: string[]): void {
         ).run(stepId, runId, step.id, agentId, status, step.input, maxRetries);
     }
 
-    insertEvent(runId, null, "run.created", { workflow: spec.id, task, scheduledAt: scheduledAt ?? null });
+    insertEvent(runId, null, "run.created", { workflow: spec.id, runSpec: runTemplate.id, task, scheduledAt: scheduledAt ?? null });
 
     const shortId = runId.slice(0, 8);
     console.log(`Run: ${shortId}`);
     console.log(`Workflow: ${spec.id}`);
+    console.log(`Run template: ${runTemplate.id} (${runTemplate.name})`);
     console.log(`Task: ${task}`);
     if (scheduledAt) {
         console.log(`Scheduled: ${scheduledAt}`);
     }
     console.log(`Status: running`);
-    console.log(`Steps: ${spec.steps.length} (first step ready for pickup)`);
+    console.log(`Steps: ${runTemplate.steps.length} (first step ready for pickup)`);
 }

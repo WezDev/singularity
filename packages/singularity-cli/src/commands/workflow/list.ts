@@ -22,6 +22,6 @@ export function list(_args: string[]): void {
     for (const file of files) {
         const spec = parseWorkflow(join(dir, file));
         const name = spec.name.padEnd(25);
-        console.log(`  ${spec.id.padEnd(16)}${name}${spec.agents.length} agents, ${spec.steps.length} steps`);
+        console.log(`  ${spec.id.padEnd(16)}${name}${spec.agents.length} agents, ${spec.runs.length} runs`);
     }
 }

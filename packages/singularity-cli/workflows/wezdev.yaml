@@ -1,0 +1,116 @@
+id: wezdev
+name: WezDev
+version: 1
+description: A team of AI software engineering agents that plan, implement, and
+  review code changes across the horizon and singularity repositories.
+agents:
+  - id: planner
+    name: Planner
+    role: analysis
+    description: Explores codebases and creates detailed implementation plans from
+      task descriptions.
+  - id: coder
+    name: Coder
+    role: coding
+    description: Implements the plan on a feature branch with clean commits.
+  - id: reviewer
+    name: Reviewer
+    role: review
+    description: Reviews code against acceptance criteria, creates PR on approval or
+      reports failures.
+runs:
+  - id: implement-ticket
+    name: Implement Ticket
+    description: Full dev cycle — plan, code, review — for a development task or story.
+    steps:
+      - id: plan
+        agent: planner
+        input: >
+          Task: {{task}}
+
+
+          Explore the horizon (~/Projects/horizon) and singularity
+          (~/Projects/singularity) codebases.
+
+          Understand the existing architecture and patterns relevant to this
+          task.
+
+          Produce a detailed implementation plan.
+
+
+          Reply with:
+
+          STATUS: done
+
+          TARGET_REPO: <horizon|singularity|both>
+
+          BRANCH_NAME: <branch name in dev_<short_slug> format>
+
+          PLAN: <numbered step-by-step plan with file paths>
+
+          ACCEPTANCE_CRITERIA: <numbered testable criteria>
+        expects: "STATUS: done"
+      - id: code
+        agent: coder
+        input: |
+          Task: {{task}}
+
+          Target repository: {{target_repo}}
+          Branch name: {{branch_name}}
+
+          Implementation plan:
+          {{plan}}
+
+          Acceptance criteria:
+          {{acceptance_criteria}}
+
+          Previous review feedback (if any):
+          {{verify_feedback}}
+
+          Create the branch, implement the plan, commit, and push.
+
+          Reply with:
+          STATUS: done
+          BRANCH: <branch name>
+          COMMITS: <summary of commits>
+          CHANGES: <summary of changes>
+        expects: "STATUS: done"
+        max_retries: 3
+      - id: review
+        agent: reviewer
+        input: |
+          Task: {{task}}
+
+          Target repository: {{target_repo}}
+          Branch: {{branch}}
+
+          Implementation plan:
+          {{plan}}
+
+          Acceptance criteria:
+          {{acceptance_criteria}}
+
+          Changes made:
+          {{changes}}
+
+          Review the branch against the acceptance criteria.
+          If approved, create a pull request into main.
+          If rejected, report specific issues.
+
+          NEVER merge into main. Only create the PR.
+
+          On approval reply with:
+          STATUS: done
+          VERDICT: approved
+          PR_URL: <url>
+          SUMMARY: <review summary>
+
+          On rejection reply with:
+          STATUS: failed
+          ISSUES: <specific numbered issues with file references>
+        expects: "STATUS: done"
+        on_fail:
+          retry_step: code
+          max_retries: 2
+          on_exhausted:
+            escalate_to: human

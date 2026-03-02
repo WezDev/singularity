@@ -9,12 +9,33 @@ export class CliTransport {
 
     async run(args: string[]): Promise<string> {
         try {
-            const { stdout } = await execFileAsync(this.binary, args, {
+            const result: unknown = await execFileAsync(this.binary, args, {
                 timeout: 30_000,
                 maxBuffer: 1024 * 1024,
             });
+
+            // Node's real child_process.execFile promisified shape is typically:
+            //   { stdout: string; stderr: string }
+            // But when execFile is mocked (and lacks util.promisify.custom), promisify may
+            // resolve to stdout as a plain string.
+            const stdout =
+                typeof result === "string"
+                    ? result
+                    : result && typeof result === "object" && "stdout" in result
+                        ? (result as { stdout?: unknown }).stdout
+                        : undefined;
+
+            if (typeof stdout !== "string") {
+                throw new SDKError(`CLI returned unexpected result for: ${this.binary} ${args.join(" ")}`, undefined, {
+                    cause: result as any,
+                });
+            }
+
             return stdout.trim();
         } catch (err) {
+            if (err instanceof SDKError) {
+                throw err;
+            }
             throw new SDKError(`CLI error: ${this.binary} ${args.join(" ")}`, undefined, { cause: err as Error });
         }
     }
